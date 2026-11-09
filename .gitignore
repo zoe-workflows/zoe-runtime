@@ -1,0 +1,33 @@
+# OS artifacts
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+
+# Runtime state (never commit)
+.zoe/
+zoe-state/
+
+# Local secrets. `.env` is the convention; `.nev`/`.en` are the typos people
+# actually type, and a typo must not turn a credential file into a commit.
+.env
+.env.*
+!.env.example
+.nev/
+.nev
+.en/

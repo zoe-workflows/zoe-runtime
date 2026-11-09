@@ -1,0 +1,40 @@
+{
+  "adapter_id": "codebuddy",
+  "adapter_backend": "codebuddy-cli",
+  "cli_version": "unverified-interface-sketch",
+  "source": "synthetic-from-documented-protocol",
+  "note": "NOT a real capture. The shapes follow the documented non-interactive result schema; M1 must replace this file with a sanitised real run at a pinned version before any profile is marked VERIFIED.",
+  "cases": [
+    {
+      "name": "normal",
+      "raw": "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"done\",\"session_id\":\"s1\",\"total_cost_usd\":0.02}",
+      "expect": {"outcome": "completed", "session_id": "s1"}
+    },
+    {
+      "name": "auth_failure",
+      "raw": "{\"type\":\"result\",\"is_error\":true,\"result\":\"Invalid API key provided\"}",
+      "expect": {"outcome": "auth_error"}
+    },
+    {
+      "name": "rate_limited",
+      "raw": "{\"type\":\"result\",\"is_error\":true,\"result\":\"429 rate limit exceeded\"}",
+      "expect": {"outcome": "rate_limited"}
+    },
+    {
+      "name": "permission_denied",
+      "raw": "{\"type\":\"result\",\"is_error\":true,\"result\":\"Permission denied by settings\"}",
+      "expect": {"outcome": "permission_denied"}
+    },
+    {
+      "name": "truncated",
+      "raw": "{\"type\":\"result\",\"is_error\":false,\"result\":\"done\"}",
+      "truncated": true,
+      "expect": {"error": "OUTPUT_LIMIT_EXCEEDED"}
+    },
+    {
+      "name": "unrecognised_terminal",
+      "raw": "{\"foo\":\"bar\"}",
+      "expect": {"error": "AGENT_RESULT_INVALID"}
+    }
+  ]
+}

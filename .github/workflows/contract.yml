@@ -1,0 +1,86 @@
+name: Contract
+
+# Cross-repository gate (§2.5), runner side: this runner build × a fixed skill tag.
+# A runner PR may not break an interface the released skill documents.
+#
+# The skill tag is pinned by value, not by branch: a moving branch would make this
+# job red for changes that belong to the skill repository. Bumping it is a
+# deliberate, reviewable edit.
+#
+# 四种组合各自负责一件事（v1.4.1）：
+#   1. 已发布兼容下限（本文件，阻断）—— 本构建 × 最低支持的已发布 skill
+#   2. 开发联调（本地）—— 固定 runtime commit × 固定 skill commit
+#   3. 发布验证（skill 仓库的 contract job）—— 候选 wheel × 候选 skill
+#   4. 前沿漂移（本文件 skill-drift，不阻断）—— 本构建 × skill main
+# 方向是不对称的：运行器必须一直能跑**最低支持的** skill，而 skill 只需要接受
+# 它自己声明的窗口；把两个方向混成一个 job 会让"旧 skill 还能用"这条保证消失。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+    inputs:
+      skill_ref:
+        type: string
+        required: false
+        default: v1.0.0
+
+jobs:
+  skill-cli-contract:
+    name: floor skill ${{ matrix.skill_ref }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 最低支持的**已发布** skill。不要把它换成 main：那样再也测不到下限。
+        skill_ref: ["v1.0.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: zoe-runtime/zoe-workflows
+          ref: ${{ matrix.skill_ref }}
+          path: .skill/zoe-workflows
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e '.[dev]'
+      - name: Documented commands and parameters must still exist
+        run: |
+          ZOE_SKILL_DIR="$GITHUB_WORKSPACE/.skill/zoe-workflows" \
+            pytest -q tests/contract tests/test_doc_contracts.py tests/test_contract_artifacts.py
+      - name: The shipped requirements file must satisfy this runtime
+        run: |
+          python -m src capabilities --check-requirements \
+            "$GITHUB_WORKSPACE/.skill/zoe-workflows/runtime-requirements.json" \
+            || { echo "the released skill rejects this runtime build" >&2; exit 1; }
+
+  skill-drift:
+    name: drift watch (this build × skill main)
+    runs-on: ubuntu-latest
+    # 上游 skill 的一个未发布提交不应把运行器的 PR 判红，但它必须可见：
+    # "文档已经写了运行器做不到的事" 是要在发布前收拾的，不是要发现的。
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: zoe-runtime/zoe-workflows
+          ref: main
+          path: .skill/zoe-workflows
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e '.[dev]'
+      - name: skill main must not document a command this build lacks
+        run: |
+          ZOE_SKILL_DIR="$GITHUB_WORKSPACE/.skill/zoe-workflows" \
+            pytest -q tests/contract tests/test_doc_contracts.py tests/test_contract_artifacts.py
+      - name: skill main's window versus this build
+        run: |
+          python -m src capabilities --check-requirements \
+            "$GITHUB_WORKSPACE/.skill/zoe-workflows/runtime-requirements.json" \
+            || echo "skill main requires a newer runtime (expected while unreleased)"

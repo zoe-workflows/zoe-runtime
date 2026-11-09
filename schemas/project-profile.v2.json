@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoe-runtime.local/schemas/project-profile.v2.json",
+  "title": "Zoe project configuration (schema v2)",
+  "type": "object",
+  "required": ["schema_version", "project_id", "repo", "backend", "agent_profiles", "default_agent_profile", "checks", "allowed_paths", "authorization_ref"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "project_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,100}$"},
+    "repo": {"type": "string"},
+    "backend": {"enum": ["local-process", "local"], "default": "local-process"},
+    "image": {"type": "string", "description": "retained for parsing only; the container backend left the product scope in v0.5.0 and this field is no longer used"},
+    "network": {"enum": ["none"]},
+    "network_policy_confirmed": {"type": "boolean"},
+    "max_active_tasks": {"type": "integer", "minimum": 1, "maximum": 8, "default": 1},
+    "require_real_e2e": {"type": "boolean", "default": false},
+    "runtime_binding": {"type": "string", "enum": ["strict", "warn"], "default": "strict"},
+    "default_agent_profile": {"type": "string"},
+    "agent_profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["adapter", "backend", "permission_profile"],
+        "additionalProperties": false,
+        "properties": {
+          "adapter": {"enum": ["codebuddy", "opencode", "claude-code", "codex"]},
+          "backend": {"type": "string", "minLength": 1},
+          "image": {"type": "string"},
+          "expected_version": {"type": "string", "minLength": 1},
+          "permission_profile": {"type": "string", "minLength": 1},
+          "require_permission_binding": {"type": "boolean"},
+          "credential_refs": {"type": "array", "items": {"type": "string"}},
+          "env_names": {"type": "array", "items": {"type": "string"}},
+          "network_profile": {"type": "string"},
+          "compatibility_evidence": {"type": "string"},
+          "model": {"type": "string"},
+          "model_aliases": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1},
+            "description": "v1.5.1: reported identifiers that name the same model as `model` (CLI alias vs provider id). Declared evidence: an observation inside this set yields model_identity=alias_confirmed, not reported_match"
+          },
+          "max_turns": {"type": "integer", "minimum": 1, "maximum": 200},
+          "approved_tools": {"type": "array", "items": {"type": "string"}},
+          "max_output_bytes": {"type": "integer", "minimum": 1},
+          "description": {"type": "string"},
+          "provider": {"type": "string", "minLength": 1, "description": "v1.2: the provider the model is served by (only where the adapter can map it)"},
+          "allow_cli_default_model": {"type": "boolean", "description": "v1.2: explicit escape hatch; makes model_unresolved=true and combination_verified always false"},
+          "model_variant": {"type": "string", "minLength": 1},
+          "reasoning_effort": {"enum": ["low", "medium", "high"]},
+          "endpoint_ref": {"type": "string", "minLength": 1, "description": "v1.2: name in the project endpoints section; records only the name, never a URL or key"},
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "input_modalities": {"type": "array", "minItems": 1, "items": {"enum": ["text", "image", "audio", "video", "pdf"]}},
+              "context_window": {"type": "integer", "minimum": 1},
+              "tool_use": {"type": "boolean"},
+              "structured_result": {"type": "boolean"},
+              "max_output_tokens": {"type": "integer", "minimum": 1}
+            }
+          },
+          "cost_class": {"enum": ["low", "standard", "premium"], "description": "v1.2: coarse, declared cost band; it is an exclusion criterion, never a ranking"},
+          "latency_class": {"enum": ["fast", "standard", "slow"]},
+          "unit_price": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["currency"],
+            "properties": {
+              "input_per_1k": {"type": "number", "minimum": 0},
+              "output_per_1k": {"type": "number", "minimum": 0},
+              "currency": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["class"],
+        "additionalProperties": false,
+        "properties": {
+          "class": {"enum": ["cloud-approved", "private", "local"]},
+          "attestation": {"enum": ["config-declared"], "default": "config-declared"}
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1},
+        "mode": {"enum": ["explicit", "auto"], "default": "explicit"},
+        "allowed_profiles": {"type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": {"type": "string"}},
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["task_type", "prefer"],
+            "additionalProperties": false,
+            "properties": {
+              "task_type": {"enum": ["bugfix", "feature", "refactor", "test", "docs", "chore", "review", "unknown", "*"]},
+              "prefer": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+            }
+          }
+        },
+        "fallback": {"enum": ["ask", "default_profile"], "default": "ask"},
+        "max_assignments": {"type": "integer", "minimum": 0, "maximum": 8, "default": 2},
+        "cost_ceiling": {"enum": ["low", "standard", "premium"], "default": "premium"},
+        "spend_guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_cost_per_task": {"type": ["number", "null"], "minimum": 0},
+            "max_cost_per_day": {"type": ["number", "null"], "minimum": 0},
+            "currency": {"type": ["string", "null"]},
+            "on_exceed": {"const": "block"}
+          }
+        },
+        "use_performance": {"const": false, "description": "v1.2 records history but never uses it to exclude or order candidates"}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "argv"],
+        "properties": {
+          "id": {"type": "string"},
+          "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "image": {"type": "string"},
+        "network": {"enum": ["none"]},
+        "checks": {"type": "array"}
+      }
+    },
+    "review_policy": {"type": "object"},
+    "limits": {"type": "object"},
+    "allowed_paths": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "protected_paths": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "shared_resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "id"],
+        "properties": {
+          "kind": {"type": "string", "minLength": 1},
+          "id": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "authorization_ref": {"type": "string"},
+    "authorized_actions": {"type": "array", "items": {"enum": ["create", "execute", "publish", "accept"]}}
+  }
+}

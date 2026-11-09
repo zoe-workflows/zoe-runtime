@@ -1,0 +1,45 @@
+{
+  "adapter_id": "opencode",
+  "adapter_backend": "opencode-cli",
+  "cli_version": "unverified-interface-sketch",
+  "source": "synthetic-from-documented-protocol",
+  "note": "NOT a real capture. `opencode run --format json` emits an event stream, so the fixture is newline-delimited. M3 must replace this file with a sanitised real run at a pinned version.",
+  "cases": [
+    {
+      "name": "normal",
+      "raw": "{\"type\":\"step_start\"}\n{\"type\":\"text\",\"text\":\"working\"}\n{\"type\":\"step_finish\",\"result\":\"done\"}",
+      "expect": {"outcome": "completed"}
+    },
+    {
+      "name": "auth_failure",
+      "raw": "{\"type\":\"step_start\"}\n{\"type\":\"error\",\"message\":\"unauthorized: invalid api key\"}",
+      "expect": {"outcome": "auth_error"}
+    },
+    {
+      "name": "rate_limited",
+      "raw": "{\"type\":\"error\",\"message\":\"429 rate limit exceeded\"}",
+      "expect": {"outcome": "rate_limited"}
+    },
+    {
+      "name": "permission_denied",
+      "raw": "{\"type\":\"error\",\"message\":\"tool not allowed by policy\"}",
+      "expect": {"outcome": "permission_denied"}
+    },
+    {
+      "name": "truncated",
+      "raw": "{\"type\":\"step_finish\",\"result\":\"done\"}",
+      "truncated": true,
+      "expect": {"error": "OUTPUT_LIMIT_EXCEEDED"}
+    },
+    {
+      "name": "missing_terminal",
+      "raw": "{\"type\":\"text\",\"text\":\"still going\"}",
+      "expect": {"outcome": "invalid_output"}
+    },
+    {
+      "name": "unknown_events_only",
+      "raw": "{\"type\":\"brand_new_event\"}\n{\"type\":\"another_event\"}",
+      "expect": {"outcome": "invalid_output"}
+    }
+  ]
+}

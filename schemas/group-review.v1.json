@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoe-runtime.local/schemas/group-review.v1.json",
+  "title": "zoe group review --request-file (design-conformance review)",
+  "description": "Output contract of the design-conformance review (TGD §11.2). Produced by a reviewer in an independent context and submitted by the host; the runtime validates it. Invalid output is recorded as `invalid` and rejected — it never becomes a pass. Every required acceptance id must appear exactly once, every evidence ref must resolve to a record of *this* integration version, and `subject_sha`/`design_digest` must match the frozen group.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject_sha",
+    "design_digest",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "subject_sha": {
+      "description": "Must equal the group's current integration_sha. A review of an older version is not a review of this delivery.",
+      "type": "string",
+      "minLength": 7
+    },
+    "design_digest": {
+      "description": "Must equal the frozen design manifest digest.",
+      "type": "string",
+      "minLength": 16
+    },
+    "reviewer": {
+      "description": "Who produced the review. `independent_context` is a declaration, not a proof; the runtime records it and never upgrades it to a guarantee.",
+      "type": "object",
+      "properties": {
+        "kind": {"enum": ["agent", "human"]},
+        "actor": {"type": ["string", "null"]},
+        "profile_id": {"type": ["string", "null"]},
+        "combination_id": {"type": ["string", "null"]},
+        "independent_context": {"type": ["boolean", "null"]}
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["acceptance_id", "status"],
+        "properties": {
+          "acceptance_id": {
+            "description": "Must be one of the acceptance ids mapped by the frozen plan.",
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "description": "PASS / FAIL / NOT_VERIFIED. There is no 'skipped': an unchecked item is NOT_VERIFIED, and NOT_VERIFIED never counts as passing.",
+            "enum": ["PASS", "FAIL", "NOT_VERIFIED"]
+          },
+          "finding": {
+            "description": "Required for FAIL and NOT_VERIFIED: what is wrong, or what could not be judged.",
+            "type": ["string", "null"]
+          },
+          "locations": {
+            "description": "Repository-relative paths only. Absolute paths and '..' escapes are refused.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "evidence_refs": {
+            "description": "check:<id> (PASS on this subject), group:<subject_sha>, or task:<task_id> (a member integrated into this subject). Fabricated refs are rejected exactly like missing ones.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 3}
+          },
+          "suggested_action": {
+            "description": "Advisory only: never executed as a shell command.",
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  }
+}

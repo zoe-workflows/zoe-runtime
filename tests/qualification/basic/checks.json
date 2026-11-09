@@ -1,0 +1,3 @@
+[
+  { "id": "file-exists", "argv": ["test", "-f", "qualification-output.txt"] }
+]

@@ -1,0 +1,40 @@
+{
+  "adapter_id": "claude-code",
+  "adapter_backend": "anthropic-api",
+  "cli_version": "unverified-interface-sketch",
+  "source": "synthetic-from-documented-protocol",
+  "note": "NOT a real capture. `claude -p --output-format json` returns one final result object. M3 must replace this file with a sanitised real run at a pinned version.",
+  "cases": [
+    {
+      "name": "normal",
+      "raw": "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"ok\",\"session_id\":\"abc\"}",
+      "expect": {"outcome": "completed", "session_id": "abc"}
+    },
+    {
+      "name": "auth_failure",
+      "raw": "{\"type\":\"result\",\"is_error\":true,\"result\":\"authentication failed\"}",
+      "expect": {"outcome": "auth_error"}
+    },
+    {
+      "name": "rate_limited",
+      "raw": "{\"type\":\"result\",\"is_error\":true,\"result\":\"429 overloaded\"}",
+      "expect": {"outcome": "rate_limited"}
+    },
+    {
+      "name": "permission_denied",
+      "raw": "{\"type\":\"result\",\"is_error\":true,\"result\":\"tool not allowed\"}",
+      "expect": {"outcome": "permission_denied"}
+    },
+    {
+      "name": "truncated",
+      "raw": "{\"type\":\"result\",\"is_error\":false,\"result\":\"ok\"}",
+      "truncated": true,
+      "expect": {"error": "OUTPUT_LIMIT_EXCEEDED"}
+    },
+    {
+      "name": "missing_terminal",
+      "raw": "{\"type\":\"assistant\",\"text\":\"hi\"}",
+      "expect": {"error": "AGENT_RESULT_INVALID"}
+    }
+  ]
+}

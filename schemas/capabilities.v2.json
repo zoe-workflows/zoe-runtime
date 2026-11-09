@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoe-runtime.local/schemas/capabilities.v2.json",
+  "title": "zoe capabilities --json",
+  "type": "object",
+  "required": [
+    "api_version",
+    "version",
+    "protocol_revision",
+    "adapters",
+    "capabilities",
+    "not_supported"
+  ],
+  "properties": {
+    "api_version": {
+      "const": 2
+    },
+    "version": {
+      "type": "string"
+    },
+    "protocol_revision": {
+      "type": "integer"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "IMPLEMENTED",
+          "UNVERIFIED",
+          "VERIFIED"
+        ]
+      }
+    },
+    "builtin": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "extended": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_supported": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "adapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "adapter_id",
+          "kind",
+          "protocol_revision",
+          "output_protocol",
+          "facts_status",
+          "backends"
+        ],
+        "properties": {
+          "adapter_id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "builtin",
+              "extended"
+            ]
+          },
+          "protocol_revision": {
+            "type": "integer"
+          },
+          "output_protocol": {
+            "type": "string"
+          },
+          "facts_status": {
+            "enum": [
+              "VERIFIED_FORM",
+              "FACT_PENDING"
+            ]
+          },
+          "backends": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "backend",
+                "capability",
+                "reason",
+                "verified"
+              ],
+              "properties": {
+                "backend": {
+                  "type": "string"
+                },
+                "capability": {
+                  "enum": [
+                    "IMPLEMENTED",
+                    "UNVERIFIED",
+                    "VERIFIED"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "verified": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "concurrency": {
+      "type": "object",
+      "required": [
+        "max_supported",
+        "default",
+        "count_scope",
+        "limit_source"
+      ],
+      "properties": {
+        "max_supported": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "default": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "count_scope": {
+          "enum": [
+            "global"
+          ]
+        },
+        "limit_source": {
+          "enum": [
+            "project_config"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "host",
+          "package",
+          "real_e2e"
+        ],
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "package": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "real_e2e": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_RUN",
+              "BLOCKED",
+              "WAIVED"
+            ]
+          }
+        }
+      }
+    },
+    "features": {
+      "description": "Capability names a skill may demand via required_capabilities.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "task_groups": {
+      "description": "v1.3 task-group delivery surface (TGD §0.5).",
+      "type": "object",
+      "required": [
+        "record_version",
+        "plan_schema_version",
+        "delivery_modes",
+        "dependency_graph",
+        "serial_execution",
+        "acceptance",
+        "not_supported"
+      ],
+      "properties": {
+        "record_version": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "plan_schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "delivery_modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependency_graph": {
+          "type": "boolean"
+        },
+        "serial_execution": {
+          "type": "boolean"
+        },
+        "per_group_runner": {
+          "type": "boolean"
+        },
+        "lease_handshake": {
+          "type": "boolean"
+        },
+        "drain_pause": {
+          "type": "boolean"
+        },
+        "budget": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "group_checks": {
+          "type": "boolean"
+        },
+        "acceptance": {
+          "enum": [
+            "group"
+          ]
+        },
+        "not_supported": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

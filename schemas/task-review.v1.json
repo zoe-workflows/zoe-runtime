@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoe-runtime.local/schemas/task-review.v1.json",
+  "title": "zoe task review --request-file (per-AC acceptance verdict)",
+  "description": "Output contract of the per-acceptance-criterion review (v1.7 second acceptance layer). Produced by a reviewer in an independent context and submitted by the host; the runtime validates it. Invalid output is recorded as `invalid` and rejected — it never becomes a pass. Every acceptance id declared by the frozen spec must appear exactly once, every evidence ref must resolve to a record of *this* candidate, and `subject_sha` must equal `validated_sha`.",
+  "type": "object",
+  "required": ["schema_version", "subject_sha", "items"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "subject_sha": {
+      "description": "Must equal the task's current validated_sha. A review of an older candidate is not a review of this delivery.",
+      "type": "string",
+      "minLength": 7
+    },
+    "reviewer": {
+      "description": "Who produced the review. `independent_context` is a declaration, not a proof; the runtime records it and additionally refuses a reviewer whose profile_id / run_id / actor produced the candidate.",
+      "type": "object",
+      "properties": {
+        "kind": {"enum": ["agent", "human"]},
+        "actor": {"type": ["string", "null"]},
+        "profile_id": {"type": ["string", "null"]},
+        "run_id": {"type": ["string", "null"]},
+        "combination_id": {"type": ["string", "null"]},
+        "independent_context": {"type": ["boolean", "null"]}
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["acceptance_id", "status"],
+        "properties": {
+          "acceptance_id": {
+            "description": "Must be one of the acceptance ids declared by the frozen spec.",
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "description": "PASS / FAIL / NOT_VERIFIED. There is no 'skipped': an unchecked item is NOT_VERIFIED, and NOT_VERIFIED must be acknowledged item by item at accept time.",
+            "enum": ["PASS", "FAIL", "NOT_VERIFIED"]
+          },
+          "finding": {
+            "description": "Required for FAIL and NOT_VERIFIED: what is wrong, or what could not be judged.",
+            "type": ["string", "null"]
+          },
+          "locations": {
+            "description": "Repository-relative paths only. Absolute paths and '..' escapes are refused.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "evidence_refs": {
+            "description": "check:<id> (PASS on this candidate), evidence:<evidence_id> (must be the current one), doc:<path> (exists in the candidate tree), or decision:<id> (declared in this spec). Fabricated refs are rejected exactly like missing ones.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 3}
+          },
+          "suggested_action": {
+            "description": "Advisory only: never executed as a shell command.",
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,133 @@
+name: Release
+
+# One entry point, two stages (§3.3): TestPyPI first, PyPI second, and the same
+# artifacts travel through both — nothing is rebuilt between stages.
+#
+# Credentials come from PyPI Trusted Publishing (OIDC). Only this workflow holds
+# `id-token: write`; ordinary PR CI has no publishing capability.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: version, tests and artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e '.[dev]' build twine
+      - name: The tag, the package metadata and the CLI must agree
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(python -c 'import src; print(src.__version__)')"
+          echo "tag=$TAG package=$VERSION"
+          [ "$TAG" = "$VERSION" ] || { echo "tag and package version differ" >&2; exit 1; }
+      - name: Tests
+        run: pytest -q
+      - name: Build
+        run: python -m build
+      - name: Check metadata
+        run: python -m twine check dist/*
+      - name: Install the wheel outside the source tree
+        run: |
+          python -m venv /tmp/zoe-venv
+          /tmp/zoe-venv/bin/pip install dist/*.whl pytest
+          cd /tmp
+          /tmp/zoe-venv/bin/zoe --version
+          /tmp/zoe-venv/bin/zoe capabilities --json
+      - name: Distribution proof
+        run: ZOE_DIST_PYTHON=/tmp/zoe-venv/bin/python pytest -q tests/test_distribution.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/*
+
+  testpypi:
+    name: stage 1 — TestPyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install the exact version from TestPyPI
+        # Stage 1 answers "does the upload install", not "is it delivered".
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python -m venv /tmp/testpypi-venv
+          for attempt in 1 2 3 4 5; do
+            if /tmp/testpypi-venv/bin/pip install \
+                 --index-url https://test.pypi.org/simple/ \
+                 --extra-index-url https://pypi.org/simple/ \
+                 "zoe-runtime==${VERSION}"; then
+              break
+            fi
+            echo "index not ready, retrying (${attempt}/5)"; sleep 20
+          done
+          cd /tmp && /tmp/testpypi-venv/bin/zoe --version
+
+  pypi:
+    name: stage 2 — PyPI
+    needs: testpypi
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install the exact version from PyPI (the real user path)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python -m venv /tmp/pypi-venv
+          for attempt in 1 2 3 4 5; do
+            if /tmp/pypi-venv/bin/pip install "zoe-runtime==${VERSION}"; then
+              break
+            fi
+            echo "index not ready, retrying (${attempt}/5)"; sleep 20
+          done
+          cd /tmp && /tmp/pypi-venv/bin/zoe --version && /tmp/pypi-venv/bin/zoe capabilities --json
+
+  github-release:
+    name: GitHub Release
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

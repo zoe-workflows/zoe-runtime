@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoe-runtime.local/schemas/group-plan.v1.json",
+  "title": "zoe group create / group plan --request-file",
+  "description": "Frozen task-group plan request (TGD §5.1). The payload carries schema_version=2 for wire compatibility with the v1.2 ordered-group request; this document is version 1 of the *plan* contract. `expected_paths` is a planning hint, never an authorisation: the enforced scope stays project allowed_paths ∩ member spec allowed_paths.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "request_id",
+    "project_id",
+    "title",
+    "delivery_mode",
+    "requirements",
+    "members",
+    "budget",
+    "authorization_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "2 for a dependency-graph plan. A request carrying `ordered_items` instead is a legacy record and cannot start.",
+      "const": 2
+    },
+    "request_id": {
+      "description": "Idempotency key: the same id + same payload replays the first answer.",
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "source": {"type": ["string", "null"]},
+    "design_files": {
+      "description": "Frozen design inputs; each file's sha256 enters design_digest.",
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "delivery_mode": {
+      "description": "v1.3 closes out local_artifact only; pull_request is refused with CAPABILITY_UNSUPPORTED (kind=group_pr_unsupported).",
+      "enum": ["local_artifact"]
+    },
+    "base_ref": {"type": "string", "minLength": 1},
+    "follow_up_of": {
+      "description": "Set when this group revises an already integrated delivery: a new group, never an in-place edit.",
+      "type": ["string", "null"]
+    },
+    "authorization_ref": {"type": "string", "minLength": 1},
+    "budget": {
+      "type": "object",
+      "required": ["max_starts"],
+      "properties": {
+        "max_starts": {
+          "description": "Billed start allowance. Required and never derived from the plan's size.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_wall_seconds": {
+          "description": "Inclusive wall-clock ceiling (sleep and waiting included). null means no time limit and the response must say so.",
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "max_group_repairs": {
+          "description": "Bounded group-repair rounds (TGD §9/§12). Absent or 0 means the plan authorises no repair execution at all; it is never derived from the member count. Each repair consumes one round and targets exactly one FAIL finding.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "review": {
+      "description": "Design-conformance review (TGD §11.1 layer 2). When `required` is true the group cannot reach REVIEW_READY, and `group accept` is refused, until a valid review bound to the final integration_sha exists with no FAIL findings. Omitting this block keeps the v1.3 behaviour (structural coverage + checks only) — the runtime never injects the field, and `group create` warns when it is absent.",
+      "type": "object",
+      "properties": {
+        "required": {
+          "description": "Defaults to true when the block is present.",
+          "type": "boolean"
+        },
+        "mode": {
+          "description": "Who is expected to produce the review. The runtime validates the submitted output either way; it never runs the reviewer itself.",
+          "enum": ["agent", "human", "either"]
+        }
+      }
+    },
+    "requirements": {
+      "description": "Every requirement must be owned by at least one member, or the plan is refused (kind=coverage_missing).",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "statement"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "statement": {"type": "string", "minLength": 1},
+          "source": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["task_key", "title", "spec_file"],
+        "properties": {
+          "task_key": {
+            "description": "Unique safe id; also the member's name in every group response.",
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {"type": "string", "minLength": 1},
+          "spec_file": {
+            "description": "Repository-relative spec path, read and frozen at creation into groups/<gid>/specs/<task_key>.json.",
+            "type": "string",
+            "minLength": 1
+          },
+          "depends_on": {
+            "description": "Static edges over other task_keys. Cycles are refused before anything is written (kind=cycle).",
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "requirement_ids": {"type": "array", "items": {"type": "string"}},
+          "acceptance_ids": {"type": "array", "items": {"type": "string"}},
+          "expected_paths": {
+            "description": "Planning hint only: refuses escapes and paths outside every project allowed_paths directory, but never grants access.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "task_type": {"type": "string"},
+          "requested_profile": {
+            "description": "Pins the routing candidate to one profile; it does not bypass admission.",
+            "type": ["string", "null"]
+          },
+          "check_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "group_checks": {
+      "description": "Check ids run once, on the final integration_sha. NOT_RUN and results for another SHA never count as passing.",
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "allOf": [
+    {
+      "description": "A dependency graph needs at least one requirement to map onto.",
+      "if": {"required": ["members"]},
+      "then": {"required": ["requirements"]}
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "allowed_paths": ["qualification-output.txt"],
+  "note": "临时项目的 allowed_paths 会覆盖成这里的值；scope() 按前缀匹配，所以这里写具体文件名而不是 '.'。"
+}

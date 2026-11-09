@@ -1,0 +1,115 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zoe-runtime"
+dynamic = ["version"]
+description = "Local execution controller for AI coding tasks that refuses to trust the agent"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+dependencies = []
+keywords = ["ai", "coding-agent", "orchestration", "sandbox", "worktree"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+]
+
+# The import name is `src` (the package directory is `src/`); the console
+# command, task ids and the state directory are unchanged.
+[project.scripts]
+zoe = "src.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+build = ["build>=1", "twine>=5"]
+
+[project.urls]
+Homepage = "https://github.com/zoe-runtime/zoe-runtime"
+Documentation = "https://github.com/zoe-runtime/zoe-runtime#readme"
+
+[tool.hatch.version]
+path = "src/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+# The skill (`SKILL.md`, `references/`, `scripts/`) ships from its own repository,
+# so it is absent here on purpose: a release artifact that happens to contain a
+# copy of the skill is the "two divergent skills" bug we split to avoid.
+include = [
+    "src/**",
+    "tests/**",
+    "docs/**",
+    "schemas/**",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The package is `src/`, so the *parent* directory must be importable:
+# `import src.cli` resolves from the repository root.
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# `ruff format --check .` passes `.` explicitly: without force-exclude the
+# `docs/` exclusion below would be ignored for that invocation.
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+# Legacy modules are exempted from lint during the preview; new code (including
+# `_agents/`, `_profiles.py`, `_groups.py`, `_evidence.py`, `_migrations.py`,
+# `_contracts.py`, `_store.py`, `_pipeline.py`) is held to the standard. These
+# exemptions are narrowed as each module is split.
+[tool.ruff.lint.per-file-ignores]
+"src/core.py" = ["E501", "E722", "E731", "F401", "F403", "F405", "B"]
+"src/cli.py" = ["E501", "F401", "F403", "F405"]
+"src/demo.py" = ["E501"]
+# v0.2 test suites: rewritten with the module split, not restyled in place. They
+# import the legacy facade with `from src.core import *`, hence F405.
+# The stub CLIs below are shell scripts embedded in triple-quoted strings; their
+# echo lines cannot be wrapped without editing the fixture the test asserts on.
+"tests/test_v041_qualification.py" = ["E501"]
+"tests/test_runtime.py" = [
+    "E501",
+    "E701",
+    "E702",
+    "F403",
+    "F405",
+    "F841",
+    "I001",
+    "UP031",
+    "B904",
+]
+"tests/test_upgrade.py" = ["E501", "F405", "I001", "UP031", "B904"]
+"tests/test_disk.py" = ["E501", "UP031"]
+
+[tool.ruff.format]
+# Formatting is a separate gate from lint. Legacy files are excluded from the
+# format check until split; do not confuse this with lint per-file-ignores.
+#
+# `docs/` holds design records: their Python blocks are pseudo-code written to
+# explain a decision, not code that runs. Reformatting them is pure churn, and
+# a format gate that rewrites design history is worse than one that stops at the
+# code. `ci.yml` runs `ruff format --check .` against exactly this exclusion.
+exclude = ["src/core.py", "src/cli.py", "src/demo.py", "docs/*.md"]

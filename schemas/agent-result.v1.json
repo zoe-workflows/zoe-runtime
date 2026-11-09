@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoe-runtime.local/schemas/agent-result.v1.json",
+  "title": "AgentResult (produced by the controller from the adapter parse)",
+  "type": "object",
+  "required": ["schema_version", "agent_id", "agent_version", "outcome", "exit_code", "usage", "raw_log_sha256", "protocol_revision"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "agent_id": {"type": "string"},
+    "agent_version": {"type": "string"},
+    "outcome": {
+      "enum": ["completed", "needs_input", "permission_denied", "auth_error", "rate_limited", "failed", "invalid_output"]
+    },
+    "exit_code": {"type": "integer"},
+    "session_id": {"type": ["string", "null"]},
+    "summary": {"type": "string"},
+    "usage": {
+      "type": "object",
+      "required": ["input_tokens", "output_tokens", "cost"],
+      "properties": {
+        "input_tokens": {"type": ["integer", "null"]},
+        "output_tokens": {"type": ["integer", "null"]},
+        "cost": {"type": ["number", "null"]}
+      }
+    },
+    "raw_log_sha256": {"type": "string"},
+    "protocol_revision": {"type": "integer"},
+    "reported_model": {
+      "type": ["string", "null"],
+      "description": "v1.2: what the tool itself reported about the model it ran. null means unobserved, never 'matched'."
+    },
+    "reported_models": {
+      "type": "array",
+      "description": "v1.2: every distinct observation, so a mixed stream cannot be flattened into one value",
+      "items": {
+        "type": "object",
+        "required": ["model", "scope"],
+        "additionalProperties": false,
+        "properties": {
+          "model": {"type": "string", "minLength": 1},
+          "scope": {"enum": ["final_result", "main_call"]}
+        }
+      }
+    }
+  }
+}
